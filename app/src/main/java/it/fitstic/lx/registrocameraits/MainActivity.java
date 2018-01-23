@@ -131,6 +131,7 @@ public class MainActivity extends AppCompatActivity
         } else if (id == R.id.nav_send) {
 
             //TODO save somewhere!!! daje!
+            //TODO gestire nome foto
 
         }
 
