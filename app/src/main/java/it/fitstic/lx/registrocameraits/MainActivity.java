@@ -126,13 +126,15 @@ public class MainActivity extends AppCompatActivity
         // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
 
+        //disabilitato menu top right (utile per impostare i settings)
         //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
-        }
+//        if (id == R.id.action_settings) {
+//            return true;
+//        }
 
         return super.onOptionsItemSelected(item);
     }
+
 
     @SuppressWarnings("StatementWithEmptyBody")
     @Override
@@ -157,9 +159,11 @@ public class MainActivity extends AppCompatActivity
         } else if (id == R.id.nav_send) {
 
             //TODO da testare
-            //TODO gestire nome foto
+            //TODO gestire nome e data foto
 
             if (mImageRegistro != null) {
+                Toast.makeText(MainActivity.this, "percorso DB ancora da definite!!!",
+                        Toast.LENGTH_LONG).show();
 
 //                Bitmap thumbnail = mImageRegistro;
 //                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
@@ -248,10 +252,12 @@ public class MainActivity extends AppCompatActivity
 
     //---------------------------------------------//
 
+    //TODO - doing - gestire il salvataggio a DB - che sia Firebase o proprietario.
+    //GESTIONE SALVATAGGIO
 
     // region HTTP SEND IMAGE
     class ImageUploadTask extends AsyncTask<Void, Void, String> {
-        private String webAddressToPost = "http://10.0.2.2:8080/GCPWeb/service/uploadImage/"; //TODO ADDRESS
+        private String webAddressToPost = "http://0.0.0.0:8080/IL PERCORSO QUI"; //TODO ADDRESS di upload
 
         // private ProgressDialog dialog;
         private ProgressDialog dialog = new ProgressDialog(MainActivity.this);
@@ -347,6 +353,7 @@ public class MainActivity extends AppCompatActivity
         }
 
 
+        //conversione per lo stream a base64 (valutare)
         public String convertBitmapToString(Bitmap bmp) {
             ByteArrayOutputStream stream = new ByteArrayOutputStream();
             bmp.compress(Bitmap.CompressFormat.PNG, 90, stream); //compress to which format you want.
