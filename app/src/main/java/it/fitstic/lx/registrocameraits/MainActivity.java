@@ -2,13 +2,22 @@ package it.fitstic.lx.registrocameraits;
 
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.ColorMatrix;
+import android.graphics.ColorMatrixColorFilter;
+import android.graphics.Paint;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.provider.DocumentsContract;
+import android.provider.MediaStore;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.util.Base64;
@@ -24,6 +33,14 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ImageView;
 import android.widget.Toast;
+
+
+import com.itextpdf.io.image.ImageDataFactory;
+import com.itextpdf.kernel.geom.PageSize;
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.layout.Document;
+import com.itextpdf.layout.element.Image;
 
 import org.apache.http.entity.mime.HttpMultipartMode;
 import org.apache.http.entity.mime.MultipartEntity;
@@ -45,9 +62,15 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Scanner;
 
+
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
 
+    public static final String PDF_PATH = "./target/test/raw_pdf.pdf";
+    public static final String IMAGE_PATH = "./target/test/raw_image.jpg";
+
+    String path_pdf = Environment.getExternalStorageDirectory() + "/photopdf.pdf";
+    String path = "";
     private static int CAMERA_PIC_REQUEST = 1;
     private ImageView mImagePreview;
     private Bitmap mImageRegistro;
@@ -67,14 +90,12 @@ public class MainActivity extends AppCompatActivity
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                //open camer
 
+                path = Environment.getExternalStorageDirectory() + "/photo1.jpg";
+                //open camera activity INTENT con pasasggio percorso immagine
                 Intent cameraIntent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
                 startActivityForResult(cameraIntent, CAMERA_PIC_REQUEST);
 
-
-//                Snackbar.make(view, "TODO qualcosa di invio!", Snackbar.LENGTH_LONG)
-//                        .setAction("Action", null).show();
             }
         });
 
@@ -144,8 +165,7 @@ public class MainActivity extends AppCompatActivity
 
         if (id == R.id.nav_camera) {
             //bottone menu SCATTA
-//            Intent intent = new Intent("android.media.action.IMAGE_CAPTURE");
-//            startActivity(intent);
+            path = Environment.getExternalStorageDirectory() + "/photo1.jpg";
             Intent cameraIntent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
             startActivityForResult(cameraIntent, CAMERA_PIC_REQUEST);
 
@@ -155,6 +175,11 @@ public class MainActivity extends AppCompatActivity
         } else if (id == R.id.nav_manage) {
 
         } else if (id == R.id.nav_share) {
+
+        } else if (id == R.id.nav_convert) {
+
+            //conversione PDF
+            convertToPdf(path_pdf);
 
         } else if (id == R.id.nav_send) {
 
@@ -245,6 +270,8 @@ public class MainActivity extends AppCompatActivity
                 mImageRegistro = (Bitmap) data.getExtras().get("data");
                 //TODO gestire il ritorno RESULT
                 mImagePreview.setImageBitmap(mImageRegistro);
+
+                path = saveToInternalStorage(mImageRegistro);
             }
         }
     }
@@ -253,7 +280,7 @@ public class MainActivity extends AppCompatActivity
     //---------------------------------------------//
 
     //TODO - doing - gestire il salvataggio a DB - che sia Firebase o proprietario.
-    //GESTIONE SALVATAGGIO
+    //GESTIONE SALVATAGGI
 
     // region HTTP SEND IMAGE
     class ImageUploadTask extends AsyncTask<Void, Void, String> {
@@ -366,5 +393,139 @@ public class MainActivity extends AppCompatActivity
 
     //endregion
 
+    //region jpg to pdf
+    public void convertToPdf(String outputPdfPath) {
+        try {
+
+            File outputFile = new File(outputPdfPath);
+            if (!outputFile.exists()) outputFile.createNewFile();
+
+            PdfDocument pdfDoc = new PdfDocument(new PdfWriter(outputPdfPath));
+
+
+            Document doc = new Document(pdfDoc, new PageSize(PageSize.A4));
+
+
+            //add dell'image alla conversione
+            Image image = new Image(ImageDataFactory.create(path));
+            image.scaleToFit(PageSize.A4.getWidth(), PageSize.A4.getHeight());//resize in A4
+
+            doc.add(image);
+//            Image gray = new Image(ImageDataFactory.create(1, 1, 1, 8,
+//                    new byte[]{(byte) 0x80}, null));
+//            gray.scaleToFit(PageSize.A4.getWidth(), PageSize.A4.getHeight());
+//
+//            doc.add(gray);
+            doc.close();
+
+//            InputStream asset = this.getAssets().open(path_pdf);
+//            FileOutputStream output = new FileOutputStream(outputFile);
+//            final byte[] buffer = new byte[1024];
+//            int size;
+//            while ((size = asset.read(buffer)) != -1) {
+//                output.write(buffer, 0, size);
+//            }
+//            asset.close();
+//            output.close();
+
+            Toast.makeText(MainActivity.this, "immagine salvata in: " + path_pdf,
+                    Toast.LENGTH_LONG).show();
+
+        } catch (Exception e) {
+            Toast.makeText(MainActivity.this, "error: " + e.getMessage(),
+                    Toast.LENGTH_LONG).show();
+            e.printStackTrace();
+        }
+
+
+    }
+
+    //endregion
+
+
+    //region save in local storage
+    private String saveToInternalStorage(Bitmap bitmapImage) {
+
+        bitmapImage = Bitmap.createScaledBitmap(bitmapImage, (int) PageSize.A4.getWidth(), (int) PageSize.A4.getHeight(), true);
+        bitmapImage = toGrayscale(bitmapImage);
+
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        bitmapImage.compress(Bitmap.CompressFormat.JPEG, 80, bytes);
+        FileOutputStream fo;
+        File f = new File(path);
+        try {
+            f.createNewFile();
+            fo = new FileOutputStream(f);
+            fo.write(bytes.toByteArray());
+            fo.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+
+// STAND-BY
+//        ContextWrapper cw = new ContextWrapper(getApplicationContext());
+//        String fullPath = Environment.getExternalStorageDirectory().getAbsolutePath() + "/registro/";
+//
+//        // path to /data/data/yourapp/app_data/nome
+//        File directory = cw.getDir("testRegistro", Context.MODE_PRIVATE);
+//        // Create imageDir
+//        File mypath=new File(directory,"registro.jpg");
+//
+//
+//        FileOutputStream fos = null;
+//        try {
+//            fos = new FileOutputStream(mypath);
+//            // Use the compress method on the BitMap object to write image to the OutputStream
+//            bitmapImage.compress(Bitmap.CompressFormat.PNG, 100, fos);
+//            fos.flush();
+//
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        } finally {
+//            try {
+//                fos.close();
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        }
+        Toast.makeText(MainActivity.this, "salvato in: " + f.getAbsolutePath(),
+                Toast.LENGTH_LONG).show();
+        return f.getAbsolutePath();
+    }
+
+    //endregion
+
+    //region convert greyscale
+    public Bitmap toGrayscale(Bitmap bmpOriginal) {
+        int width, height;
+        height = bmpOriginal.getHeight();
+        width = bmpOriginal.getWidth();
+
+        //TODO testare
+        int contrast = -50;
+        int brightness = -200;
+
+        Bitmap bmpGrayscale = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(bmpGrayscale);
+        Paint paint = new Paint();
+        ColorMatrix cm = new ColorMatrix(new float[]
+                {
+                        contrast, 0, 0, 0, brightness,
+                        0, contrast, 0, 0, brightness,
+                        0, 0, contrast, 0, brightness,
+                        0, 0, 0, 1, 0
+                });
+        cm.setSaturation(0);
+
+        ColorMatrixColorFilter f = new ColorMatrixColorFilter(cm);
+
+        paint.setColorFilter(f);
+
+        c.drawBitmap(bmpOriginal, 0, 0, paint);
+        return bmpGrayscale;
+    }
+
+    //endregion
 
 }
